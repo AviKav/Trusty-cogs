@@ -1,3 +1,4 @@
+import datetime
 import discord
 import logging
 
@@ -9,6 +10,7 @@ from redbot.core.i18n import Translator, cog_i18n
 
 from .message_entry import StarboardMessage
 from .starboard_entry import StarboardEntry
+from .hardcoded_values import MAX_AGE, SERVER_ID
 
 _ = Translator("Starboard", __file__)
 log = logging.getLogger("red.trusty-cogs.Starboard")
@@ -267,15 +269,19 @@ class StarboardEvents:
                 await self._save_starboards(guild)
                 return
 
-            em = await self._build_embed(guild, msg, starboard)
-            count_msg = "{} **#{}**".format(payload.emoji, count)
-            post_msg = await star_channel.send(count_msg, embed=em)
             if star_message.to_json() not in starboard.messages:
                 self.starboards[guild.id][starboard.name].messages.append(star_message.to_json())
-            star_message = StarboardMessage(
-                msg.id, channel.id, post_msg.id, star_channel.id, msg.author.id
-            )
-            self.starboards[guild.id][starboard.name].messages.append(star_message.to_json())
+
+            message_timestamp = discord.utils.snowflake_time(payload.message_id)
+            current_timestamp = datetime.datetime.now()
+            if (current_timestamp - message_timestamp) < MAX_AGE and payload.guild_id == SERVER_ID:
+                em = await self._build_embed(guild, msg, starboard)
+                count_msg = "{} **#{}**".format(payload.emoji, count)
+                post_msg = await star_channel.send(count_msg, embed=em)
+                star_message = StarboardMessage(
+                    msg.id, channel.id, post_msg.id, star_channel.id, msg.author.id
+                )
+                self.starboards[guild.id][starboard.name].messages.append(star_message.to_json())
             await self._save_starboards(guild)
 
     async def _loop_messages(
